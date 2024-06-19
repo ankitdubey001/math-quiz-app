@@ -1,6 +1,5 @@
 import streamlit as st
 import sqlite3
-from werkzeug.security import generate_password_hash, check_password_hash
 
 # Define a function to establish a connection to SQLite database
 def get_db_connection():
@@ -12,15 +11,15 @@ def get_db_connection():
 class User:
     def __init__(self, username, password):
         self.username = username
-        self.password = generate_password_hash(password)
-    
+        self.password = password  # Store plain text password
+
     def save(self):
         conn = get_db_connection()
         c = conn.cursor()
         c.execute('INSERT INTO users (username, password) VALUES (?, ?)', (self.username, self.password))
         conn.commit()
         conn.close()
-    
+
     @staticmethod
     def find_by_username(username):
         conn = get_db_connection()
@@ -29,6 +28,10 @@ class User:
         user = c.fetchone()
         conn.close()
         return user
+
+    def check_password(self, password):
+        # Compare the plain text password with the stored password
+        return self.password == password
 
 # Define Question model
 class Question:
@@ -175,6 +178,60 @@ def populate_questions():
 
 # Streamlit application
 def main():
+    st.title("Math Quiz App")
+
+    # Initialize session state
+    if 'username' not in st.session_state:
+        st.session_state.username = None
+    if 'step' not in st.session_state:
+        st.session_state.step = 'login_or_register'
+
+    # Define navigation functions
+    def navigate_to(step):
+        st.session_state.step = step
+
+    # Registration and Login
+    if st.session_state.step == 'login_or_register':
+        login_or_register = st.radio("Choose Action", ["Login", "Register"], key="action_select")
+
+        if login_or_register == "Register":
+            st.header("Register")
+            with st.container():
+                username_reg = st.text_input("Username", key="username_reg")
+                password_reg = st.text_input("Password", type="password", key="password_reg")
+                if st.button("Register", key="register_button"):
+                    if not username_reg or not password_reg:
+                        st.error("Please enter both username and password.")
+                    elif User.find_by_username(username_reg):
+                        st.error("Username already exists")
+                    else:
+                        new_user = User(username_reg, password_reg)
+                        new_user.save()
+                        st.success("Registration successful. Please log in.")
+                        navigate_to('login')
+
+        if login_or_register == "Login":
+            st.header("Login")
+            with st.container():
+                username_login = st.text_input("Username", key="username_login")
+                password_login = st.text_input("Password", type="password", key="password_login")
+                if st.button("Login", key="login_button"):
+                    if not username_login or not password_login:
+                        st.error("Please enter both username and password.")
+                    else:
+                        user = User.find_by_username(username_login)
+                        if user and user['password'] == password_login:  # Check plain text password
+                            st.success("Login successful")
+                            st.session_state.username = username_login
+                            navigate_to('grade_select')
+                        else:
+                            st.error("Invalid credentials")
+
+if __name__ == "__main__":
+    main()
+
+# Streamlit application
+def main():
     st.markdown("""
         <style>
         body {
@@ -222,8 +279,6 @@ def main():
         </style>
         """, unsafe_allow_html=True)
 
-    st.title("🧮 Math Quiz App", anchor=None)
-
     # Initialize session state
     if 'username' not in st.session_state:
         st.session_state.username = None
@@ -250,47 +305,7 @@ def main():
         elif st.session_state.step == 'grade_select':
             st.session_state.step = 'login_or_register'
 
-    # Registration and Login
-    if st.session_state.step == 'login_or_register':
-        login_or_register = st.radio("Choose Action", ["Login", "Register"], key="action_select")
         
-        if login_or_register == "Register":
-            st.header("Register")
-            with st.container():
-                username_reg = st.text_input("Username", key="username_reg")
-                password_reg = st.text_input("Password", type="password", key="password_reg")
-                if st.button("Register", key="register_button"):
-                    if not username_reg or not password_reg:
-                        st.error("Please enter both username and password.")
-                    elif User.find_by_username(username_reg):
-                        st.error("Username already exists")
-                    else:
-                        new_user = User(username_reg, password_reg)
-                        new_user.save()
-                        st.success("Registration successful. Please log in.")
-                        navigate_to('login')
-                if st.button("Back", key="register_back_button"):
-                    go_back()
-        
-        if login_or_register == "Login":
-            st.header("Login")
-            with st.container():
-                username_login = st.text_input("Username", key="username_login")
-                password_login = st.text_input("Password", type="password", key="password_login")
-                if st.button("Login", key="login_button"):
-                    if not username_login or not password_login:
-                        st.error("Please enter both username and password.")
-                    else:
-                        user = User.find_by_username(username_login)
-                        if user and check_password_hash(user['password'], password_login):
-                            st.success("Login successful")
-                            st.session_state.username = username_login
-                            navigate_to('grade_select')
-                        else:
-                            st.error("Invalid credentials")
-                if st.button("Back", key="login_back_button"):
-                    go_back()
-    
     # Grade selection
     if st.session_state.step == 'grade_select':
         st.header("Select Grade")
