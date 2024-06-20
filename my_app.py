@@ -178,7 +178,7 @@ def populate_questions():
 
 # Streamlit application
 def main():
-    st.set_page_config(page_title="Math Quiz App", page_icon="🧮", layout="wide")
+    st.title("Math Quiz App")
 
     # Initialize session state
     if 'username' not in st.session_state:
@@ -291,7 +291,7 @@ def main():
     if 'score' not in st.session_state:
         st.session_state.score = 0
 
-    # Define navigation functions
+  # Define navigation functions
     def navigate_to(step):
         st.session_state.step = step
 
